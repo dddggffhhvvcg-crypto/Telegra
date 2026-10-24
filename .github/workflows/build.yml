@@ -65,8 +65,8 @@ jobs:
                   applicationId = "com.mychat.app"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 4
-                  versionName = "4.0"
+                  versionCode = 6
+                  versionName = "6.0"
               }
 
               buildFeatures {
@@ -299,7 +299,7 @@ jobs:
           @Composable
           fun MessengerApp() {
               val context = LocalContext.current
-              val prefs = remember { context.getSharedPreferences("messenger_prefs_v4", Context.MODE_PRIVATE) }
+              val prefs = remember { context.getSharedPreferences("messenger_prefs_v6", Context.MODE_PRIVATE) }
 
               var themeMode by remember {
                   val savedTheme = prefs.getString("theme", AppThemeMode.MIDNIGHT.name) ?: AppThemeMode.MIDNIGHT.name
@@ -315,16 +315,8 @@ jobs:
                   )
               }
 
-              // Список чатов изначально пустой (без чужих переписок из скринов)
               val chats = remember { mutableStateListOf<ChatChannel>() }
-
-              // Пользователи для поиска по @юзернейму (без отображения Email!)
-              val directoryUsers = remember {
-                  mutableStateListOf(
-                      UserAccount(name = "Поддержка Messenger", username = "support", bio = "Официальный аккаунт"),
-                      UserAccount(name = "Новости и релизы", username = "releases", bio = "Канал обновлений")
-                  )
-              }
+              val directoryUsers = remember { mutableStateListOf<UserAccount>() }
 
               var currentTab by remember { mutableIntStateOf(0) }
               var activeChatId by remember { mutableStateOf<String?>(null) }
@@ -379,6 +371,7 @@ jobs:
                           val openedChat = chats.find { it.id == activeChatId }
                           if (openedChat != null) {
                               ChatConversationScreen(
+                                  currentUser = currentUser!!,
                                   chat = openedChat,
                                   theme = themeMode,
                                   onBack = { activeChatId = null },
@@ -390,6 +383,7 @@ jobs:
                                   Box(modifier = Modifier.weight(1f)) {
                                       when (currentTab) {
                                           0 -> ChatsListScreen(
+                                              currentUser = currentUser!!,
                                               chats = chats,
                                               theme = themeMode,
                                               onOpenChat = { activeChatId = it.id },
@@ -476,6 +470,34 @@ jobs:
                               }
                           )
                       }
+                  }
+              }
+          }
+
+          @Composable
+          fun UserBadgeRow(username: String, theme: AppThemeMode, modifier: Modifier = Modifier) {
+              val isOwner = username.equals("sasal", ignoreCase = true)
+              val isAdmin = username.equals("admin", ignoreCase = true) || isOwner
+
+              Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+                  if (isOwner) {
+                      // Звёздочка спереди для владельца @sasal
+                      Text(text = "⭐", fontSize = 13.sp, modifier = Modifier.padding(end = 3.dp))
+                  }
+
+                  Text(
+                      text = "@$username",
+                      color = theme.accent,
+                      fontSize = 14.sp,
+                      fontWeight = FontWeight.Medium
+                  )
+
+                  if (isOwner) {
+                      // Корона сзади для владельца @sasal
+                      Text(text = "👑", fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
+                  } else if (isAdmin) {
+                      // Уникальный админский значок (щит с галочкой / звездой)
+                      Text(text = "🛡️", fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
                   }
               }
           }
@@ -582,7 +604,7 @@ jobs:
                       MockupInputField(
                           value = name,
                           onValueChange = { name = it; errorMsg = null },
-                          placeholder = "Имя (например, Алекс)",
+                          placeholder = "Имя",
                           leadingIcon = Icons.Default.PersonOutline,
                           theme = theme
                       )
@@ -595,7 +617,7 @@ jobs:
                           username = it.filter { ch -> ch.isLetterOrDigit() || ch == '_' || ch == '@' }.take(32)
                           errorMsg = null
                       },
-                      placeholder = "@юзернейм",
+                      placeholder = "@юзернейм (например, sasal)",
                       leadingIcon = Icons.Default.AlternateEmail,
                       trailingContent = {
                           if (isRegister && cleanUsername.isNotEmpty()) {
@@ -761,6 +783,7 @@ jobs:
 
           @Composable
           fun ChatsListScreen(
+              currentUser: UserAccount,
               chats: List<ChatChannel>,
               theme: AppThemeMode,
               onOpenChat: (ChatChannel) -> Unit,
@@ -773,13 +796,15 @@ jobs:
                           .fillMaxWidth()
                           .padding(horizontal = 20.dp, vertical = 18.dp)
                   ) {
-                      Text(
-                          text = "Чаты",
-                          color = theme.textMain,
-                          fontSize = 28.sp,
-                          fontWeight = FontWeight.Bold,
-                          modifier = Modifier.weight(1f)
-                      )
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = "Чаты",
+                              color = theme.textMain,
+                              fontSize = 28.sp,
+                              fontWeight = FontWeight.Bold
+                          )
+                          UserBadgeRow(username = currentUser.username, theme = theme)
+                      }
                       Surface(
                           color = theme.accent,
                           shape = CircleShape,
@@ -888,14 +913,8 @@ jobs:
                                                   overflow = TextOverflow.Ellipsis
                                               )
                                           }
-                                          Spacer(Modifier.height(4.dp))
-                                          Text(
-                                              text = lastMsg?.text ?: if (chat.isChannel) "Канал @${chat.username}" else "@${chat.username}",
-                                              color = theme.textSub,
-                                              fontSize = 14.sp,
-                                              maxLines = 1,
-                                              overflow = TextOverflow.Ellipsis
-                                          )
+                                          Spacer(Modifier.height(2.dp))
+                                          UserBadgeRow(username = chat.username, theme = theme)
                                       }
                                       if (lastMsg != null) {
                                           Text(
@@ -1000,12 +1019,7 @@ jobs:
                                       fontWeight = FontWeight.Bold
                                   )
                                   Spacer(Modifier.height(2.dp))
-                                  Text(
-                                      text = "@${user.username}",
-                                      color = theme.accent,
-                                      fontSize = 14.sp,
-                                      fontWeight = FontWeight.Medium
-                                  )
+                                  UserBadgeRow(username = user.username, theme = theme)
                               }
 
                               IconButton(onClick = { showEditProfileDialog = true }) {
@@ -1050,11 +1064,16 @@ jobs:
                           modifier = Modifier.fillMaxWidth()
                       ) {
                           Column {
-                              SettingsInfoRow(
-                                  label = "Юзернейм",
-                                  value = "@${user.username}",
-                                  theme = theme
-                              )
+                              Row(
+                                  verticalAlignment = Alignment.CenterVertically,
+                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .padding(horizontal = 18.dp, vertical = 16.dp)
+                              ) {
+                                  Text("Юзернейм", color = theme.textSub, fontSize = 15.sp)
+                                  UserBadgeRow(username = user.username, theme = theme)
+                              }
                               HorizontalDivider(color = theme.stroke)
                               SettingsInfoRow(
                                   label = "Шифрование",
@@ -1292,11 +1311,7 @@ jobs:
                                       fontWeight = FontWeight.Bold,
                                       fontSize = 15.sp
                                   )
-                                  Text(
-                                      text = "@$cleanQuery",
-                                      color = theme.accent,
-                                      fontSize = 13.sp
-                                  )
+                                  UserBadgeRow(username = cleanQuery, theme = theme)
                               }
                               Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = theme.accent)
                           }
@@ -1328,7 +1343,7 @@ jobs:
                                   Spacer(Modifier.width(14.dp))
                                   Column(modifier = Modifier.weight(1f)) {
                                       Text(item.name, color = theme.textMain, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                      Text("@${item.username}", color = theme.accent, fontSize = 13.sp)
+                                      UserBadgeRow(username = item.username, theme = theme)
                                   }
                               }
                           }
@@ -1511,6 +1526,7 @@ jobs:
 
           @Composable
           fun ChatConversationScreen(
+              currentUser: UserAccount,
               chat: ChatChannel,
               theme: AppThemeMode,
               onBack: () -> Unit,
@@ -1533,7 +1549,7 @@ jobs:
                               chat.messages.add(
                                   MessageItem(
                                       id = System.currentTimeMillis(),
-                                      author = "Вы",
+                                      author = currentUser.name,
                                       text = if (text.isBlank()) "Фотография" else text.trim(),
                                       time = now,
                                       isMine = true,
@@ -1581,11 +1597,7 @@ jobs:
                                       fontSize = 16.sp,
                                       fontWeight = FontWeight.Bold
                                   )
-                                  Text(
-                                      text = "@${chat.username}",
-                                      color = theme.textSub,
-                                      fontSize = 13.sp
-                                  )
+                                  UserBadgeRow(username = chat.username, theme = theme)
                               }
                           }
                           IconButton(onClick = onEditChannel) {
@@ -1708,7 +1720,7 @@ jobs:
                                           chat.messages.add(
                                               MessageItem(
                                                   id = System.currentTimeMillis(),
-                                                  author = "Вы",
+                                                  author = currentUser.name,
                                                   text = text.trim(),
                                                   time = now,
                                                   isMine = true
@@ -2102,7 +2114,7 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+        run: gradle assembleDebug
 
       - name: Upload Compiled Debug APK
         uses: actions/upload-artifact@v4
