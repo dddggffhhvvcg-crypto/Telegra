@@ -1,0 +1,2244 @@
+name: Generate Full Project ZIP & Build APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Complete Messenger Project Structure
+        run: |
+          mkdir -p app/src/main/java/com/mychat/app
+          mkdir -p app/src/main/res/values
+
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "Messenger"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+
+          cat << 'EOF' > gradle.properties
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.mychat.app"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.mychat.app"
+                  minSdk = 26
+                  targetSdk = 34
+                  versionCode = 2
+                  versionName = "2.0-Expressive"
+              }
+
+              buildFeatures {
+                  compose = true
+              }
+
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.14"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+
+          dependencies {
+              val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+              implementation(composeBom)
+              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+              implementation("androidx.activity:activity-compose:1.9.2")
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-graphics")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-extended")
+              implementation("androidx.graphics:graphics-shapes:1.0.1")
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.VIBRATE" />
+
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:icon="@android:drawable/sym_action_chat"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Messenger</string>
+              <string name="welcome_slogan">Expressive-мессенджер нового поколения</string>
+              <string name="create_account">Создать аккаунт</string>
+              <string name="sign_in">Войти</string>
+              <string name="search_settings">Найти настройки</string>
+              <string name="event_title">Ивент</string>
+              <string name="event_sub">Halloween</string>
+              <string name="gift_badge">Подарок</string>
+              <string name="pull_to_open">Потяните, чтобы открыть</string>
+              <string name="tap_prompt">Нажми</string>
+              <string name="choose_one">Выберите одну</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/mychat/app/MainActivity.kt
+          package com.mychat.app
+
+          import android.content.Context
+          import android.os.Bundle
+          import android.os.HapticFeedbackConstants
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.BackHandler
+          import androidx.activity.compose.setContent
+          import androidx.compose.animation.*
+          import androidx.compose.animation.core.*
+          import androidx.compose.foundation.*
+          import androidx.compose.foundation.gestures.Orientation
+          import androidx.compose.foundation.gestures.draggable
+          import androidx.compose.foundation.gestures.rememberDraggableState
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.LazyRow
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.lazy.rememberLazyListState
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.automirrored.filled.ArrowBack
+          import androidx.compose.material.icons.automirrored.filled.ArrowForward
+          import androidx.compose.material.icons.automirrored.filled.Send
+          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.alpha
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.draw.rotate
+          import androidx.compose.ui.draw.scale
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.*
+          import androidx.compose.ui.graphics.drawscope.Fill
+          import androidx.compose.ui.graphics.vector.ImageVector
+          import androidx.compose.ui.layout.onSizeChanged
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.platform.LocalDensity
+          import androidx.compose.ui.platform.LocalView
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
+          import androidx.compose.ui.text.input.VisualTransformation
+          import androidx.compose.ui.text.style.TextAlign
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.Dp
+          import androidx.compose.ui.unit.IntOffset
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.launch
+          import kotlin.math.cos
+          import kotlin.math.roundToInt
+          import kotlin.math.sin
+
+          // Цветовая палитра из референса
+          val BgDark = Color(0xFF0E0F11)
+          val CardDark = Color(0xFF181B1C)
+          val CardStroke = Color(0xFF23282A)
+          val AccentTeal = Color(0xFF81A9AB)
+          val ContainerTeal = Color(0xFF23393B)
+          val ContainerPurple = Color(0xFF2E2C3B)
+          val ToastLight = Color(0xFFDDDDDF)
+          val TextWhite = Color(0xFFF2F5F5)
+          val TextSub = Color(0xFF8A9496)
+
+          enum class ShapeType { COOKIE, SUNNY, PENTAGON, CLOVER, HEXAGON }
+
+          data class AccountProfile(
+              val name: String,
+              val username: String,
+              val email: String,
+              val bio: String = "Разработчик и дизайнер",
+              val frameReward: String = ""
+          )
+
+          data class ChatMessage(
+              val id: Long,
+              val sender: String,
+              val text: String,
+              val time: String,
+              val isMine: Boolean,
+              val reactions: List<String> = emptyList(),
+              val replyTo: String? = null
+          )
+
+          data class ChatDialog(
+              val id: String,
+              val title: String,
+              val username: String,
+              val folder: String, // Личные, Группы, Каналы
+              val isChannel: Boolean = false,
+              val subscribers: Int = 1,
+              val unread: Int = 0,
+              val muted: Boolean = false,
+              val pinned: Boolean = false,
+              val shape: ShapeType = ShapeType.COOKIE,
+              val messages: MutableList<ChatMessage>
+          )
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      MaterialTheme(
+                          colorScheme = darkColorScheme(
+                              background = BgDark,
+                              surface = CardDark,
+                              primary = AccentTeal,
+                              secondaryContainer = ContainerTeal,
+                              onBackground = TextWhite,
+                              onSurface = TextWhite
+                          )
+                      ) {
+                          MessengerRoot()
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun MessengerRoot() {
+              val context = LocalContext.current
+              val prefs = remember { context.getSharedPreferences("expressive_messenger", Context.MODE_PRIVATE) }
+              val view = LocalView.current
+              val scope = rememberCoroutineScope()
+
+              // Мультиаккаунт и сессия
+              val accounts = remember {
+                  mutableStateListOf<AccountProfile>().apply {
+                      val savedUser = prefs.getString("username", "") ?: ""
+                      if (savedUser.isNotEmpty()) {
+                          add(
+                              AccountProfile(
+                                  name = prefs.getString("name", "Makslim Zevlachkov") ?: "Makslim Zevlachkov",
+                                  username = savedUser,
+                                  email = prefs.getString("email", "user@mail.ru") ?: "user@mail.ru",
+                                  frameReward = prefs.getString("reward", "") ?: ""
+                              )
+                          )
+                          add(AccountProfile("Второй аккаунт", "dev_second", "second@mail.ru"))
+                      }
+                  }
+              }
+              var activeAccountIndex by remember { mutableIntStateOf(0) }
+
+              // Навигация верхнего уровня
+              var screenState by remember {
+                  mutableStateOf(if (accounts.isEmpty()) "AUTH" else "MAIN")
+              }
+              var activeTab by remember { mutableIntStateOf(3) } // 0:Чаты, 1:Контакты, 2:Профиль, 3:Настройки
+              var openedChatId by remember { mutableStateOf<String?>(null) }
+              var subScreen by remember { mutableStateOf<String?>(null) } // SEARCH, EVENT, THEMES, CUSTOMIZE, CREATE_CHAT
+
+              // Светлый тост как на видео (00:20)
+              var lightToastText by remember { mutableStateOf<String?>(null) }
+              fun showExpressiveToast(msg: String) {
+                  view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                  lightToastText = msg
+                  scope.launch {
+                      delay(3200)
+                      if (lightToastText == msg) lightToastText = null
+                  }
+              }
+
+              // Начальные чаты, группы, каналы и Избранное
+              val dialogs = remember {
+                  mutableStateListOf(
+                      ChatDialog(
+                          id = "saved",
+                          title = "Избранное",
+                          username = "saved_messages",
+                          folder = "Личные",
+                          pinned = true,
+                          shape = ShapeType.CLOVER,
+                          messages = mutableStateListOf(
+                              ChatMessage(1, "Вы", "Заметки, пароли и сохранённые файлы", "10:15", true, listOf("🎃"))
+                          )
+                      ),
+                      ChatDialog(
+                          id = "design_chan",
+                          title = "Expressive Design News",
+                          username = "expressive_ui",
+                          folder = "Каналы",
+                          isChannel = true,
+                          subscribers = 14820,
+                          unread = 2,
+                          pinned = true,
+                          shape = ShapeType.SUNNY,
+                          messages = mutableStateListOf(
+                              ChatMessage(2, "Expressive Design News", "Вышло обновление с поддержкой Halloween-ивента и новых морф-форм!", "09:40", false, listOf("🎃", "👻", "🕸️"))
+                          )
+                      ),
+                      ChatDialog(
+                          id = "alex",
+                          title = "Алексей Морозов",
+                          username = "alex_frost",
+                          folder = "Личные",
+                          unread = 1,
+                          shape = ShapeType.COOKIE,
+                          messages = mutableStateListOf(
+                              ChatMessage(3, "Алексей", "Привет! Ты уже открыл подарок в настройках?", "09:50", false),
+                              ChatMessage(4, "Вы", "Сейчас зайду проверю!", "09:51", true)
+                          )
+                      ),
+                      ChatDialog(
+                          id = "android_grp",
+                          title = "Android Kotlin Чат",
+                          username = "kotlin_devs",
+                          folder = "Группы",
+                          subscribers = 412,
+                          muted = true,
+                          shape = ShapeType.HEXAGON,
+                          messages = mutableStateListOf(
+                              ChatMessage(5, "Дмитрий", "Сборка через GitHub Actions прошла за 2 минуты!", "Вчера", false, listOf("🔥"))
+                          )
+                      )
+                  )
+              }
+
+              Box(modifier = Modifier.fillMaxSize().background(BgDark)) {
+                  when (screenState) {
+                      "AUTH" -> AuthFlowScreen(
+                          onComplete = { newProfile ->
+                              prefs.edit()
+                                  .putString("name", newProfile.name)
+                                  .putString("username", newProfile.username)
+                                  .putString("email", newProfile.email)
+                                  .apply()
+                              accounts.add(0, newProfile)
+                              activeAccountIndex = 0
+                              screenState = "MAIN"
+                              activeTab = 0
+                              showExpressiveToast("Добро пожаловать, @${newProfile.username}!")
+                          }
+                      )
+
+                      "MAIN" -> {
+                          val currentAccount = accounts.getOrElse(activeAccountIndex) {
+                              AccountProfile("Makslim Zevlachkov", "slim", "slim@mail.ru")
+                          }
+
+                          // Внутренние экраны поверх вкладок
+                          when {
+                              openedChatId != null -> {
+                                  val chat = dialogs.find { it.id == openedChatId }
+                                  if (chat != null) {
+                                      ChatDetailScreen(
+                                          chat = chat,
+                                          onBack = { openedChatId = null },
+                                          onToast = ::showExpressiveToast
+                                      )
+                                  } else {
+                                      openedChatId = null
+                                  }
+                              }
+
+                              subScreen == "EVENT" -> {
+                                  HalloweenEventScreen(
+                                      onBack = { subScreen = null },
+                                      onRewardSelected = { rewardName ->
+                                          prefs.edit().putString("reward", rewardName).apply()
+                                          accounts[activeAccountIndex] = currentAccount.copy(frameReward = rewardName)
+                                          subScreen = null
+                                          showExpressiveToast("Вам выпало:\n$rewardName")
+                                      }
+                                  )
+                              }
+
+                              subScreen == "SEARCH" -> {
+                                  GlobalSearchScreen(
+                                      dialogs = dialogs,
+                                      onBack = { subScreen = null },
+                                      onOpenChat = { id ->
+                                          subScreen = null
+                                          openedChatId = id
+                                      }
+                                  )
+                              }
+
+                              subScreen == "CREATE_CHAT" -> {
+                                  CreateGroupOrChannelScreen(
+                                      onBack = { subScreen = null },
+                                      onCreate = { newDialog ->
+                                          dialogs.add(0, newDialog)
+                                          subScreen = null
+                                          openedChatId = newDialog.id
+                                          showExpressiveToast("Создано: ${newDialog.title}")
+                                      }
+                                  )
+                              }
+
+                              else -> {
+                                  val listState = rememberLazyListState()
+                                  val isScrollingDown by remember {
+                                      derivedStateOf { listState.firstVisibleItemScrollOffset > 60 }
+                                  }
+
+                                  Box(modifier = Modifier.fillMaxSize()) {
+                                      when (activeTab) {
+                                          0 -> ChatsTabScreen(
+                                              dialogs = dialogs,
+                                              listState = listState,
+                                              onOpenChat = { openedChatId = it },
+                                              onNewChat = { subScreen = "CREATE_CHAT" },
+                                              onOpenSearch = { subScreen = "SEARCH" },
+                                              onToast = ::showExpressiveToast
+                                          )
+                                          1 -> ContactsTabScreen(
+                                              dialogs = dialogs,
+                                              onOpenChat = { openedChatId = it },
+                                              onOpenSearch = { subScreen = "SEARCH" },
+                                              onToast = ::showExpressiveToast
+                                          )
+                                          2 -> ProfileTabScreen(
+                                              account = currentAccount,
+                                              onUpdate = { updated ->
+                                                  accounts[activeAccountIndex] = updated
+                                                  showExpressiveToast("Профиль обновлён")
+                                              },
+                                              onToast = ::showExpressiveToast
+                                          )
+                                          3 -> SettingsReferenceScreen(
+                                              account = currentAccount,
+                                              accounts = accounts,
+                                              listState = listState,
+                                              onSelectAccount = { idx ->
+                                                  activeAccountIndex = idx
+                                                  showExpressiveToast("Аккаунт @${accounts[idx].username}")
+                                              },
+                                              onAddAccount = { screenState = "AUTH" },
+                                              onOpenEvent = { subScreen = "EVENT" },
+                                              onOpenSaved = { openedChatId = "saved" },
+                                              onLogout = {
+                                                  prefs.edit().clear().apply()
+                                                  accounts.clear()
+                                                  screenState = "AUTH"
+                                              },
+                                              onToast = ::showExpressiveToast
+                                          )
+                                      }
+
+                                      // Парящая нижняя навигация («пилюля» + отдельная кнопка поиска справа)
+                                      ExpressiveFloatingBottomBar(
+                                          activeTab = activeTab,
+                                          compactMode = isScrollingDown,
+                                          onSelectTab = {
+                                              view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                              activeTab = it
+                                          },
+                                          onSearchClick = {
+                                              view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                              subScreen = "SEARCH"
+                                          },
+                                          modifier = Modifier
+                                              .align(Alignment.BottomCenter)
+                                              .padding(bottom = 18.dp, start = 16.dp, end = 16.dp)
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  // Светлый тост внизу экрана (точно как на 00:20 в видео)
+                  AnimatedVisibility(
+                      visible = lightToastText != null,
+                      enter = fadeIn() + slideInVertically { it / 2 },
+                      exit = fadeOut() + slideOutVertically { it / 2 },
+                      modifier = Modifier
+                          .align(Alignment.BottomCenter)
+                          .padding(bottom = 86.dp, start = 28.dp, end = 28.dp)
+                  ) {
+                      Surface(
+                          color = ToastLight,
+                          shape = RoundedCornerShape(18.dp),
+                          shadowElevation = 8.dp
+                      ) {
+                          Text(
+                              text = lightToastText ?: "",
+                              color = Color(0xFF141618),
+                              fontSize = 15.sp,
+                              fontWeight = FontWeight.Medium,
+                              modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp)
+                          )
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // МОРФЯЩИЕСЯ ФОРМЫ В СТИЛЕ MATERIAL SHAPES (COOKIE, SUNNY, CLOVER, PENTAGON)
+          // ============================================================================
+          @Composable
+          fun ExpressiveMorphIcon(
+              shapeType: ShapeType,
+              containerColor: Color,
+              modifier: Modifier = Modifier.size(42.dp),
+              lobeCountOverride: Int? = null,
+              content: @Composable BoxScope.() -> Unit
+          ) {
+              val infinite = rememberInfiniteTransition(label = "morph")
+              val phase by infinite.animateFloat(
+                  initialValue = 0f,
+                  targetValue = 6.28318f,
+                  animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing)),
+                  label = "phase"
+              )
+
+              Box(modifier = modifier, contentAlignment = Alignment.Center) {
+                  Canvas(modifier = Modifier.fillMaxSize()) {
+                      val cx = size.width / 2f
+                      val cy = size.height / 2f
+                      val baseR = size.minDimension * 0.43f
+                      val lobes = lobeCountOverride ?: when (shapeType) {
+                          ShapeType.COOKIE -> 8
+                          ShapeType.SUNNY -> 12
+                          ShapeType.PENTAGON -> 5
+                          ShapeType.CLOVER -> 4
+                          ShapeType.HEXAGON -> 6
+                      }
+                      val amp = when (shapeType) {
+                          ShapeType.SUNNY -> baseR * 0.13f
+                          ShapeType.CLOVER -> baseR * 0.16f
+                          else -> baseR * 0.09f
+                      }
+
+                      val path = Path()
+                      val steps = 140
+                      for (i in 0..steps) {
+                          val angle = 2.0 * Math.PI * i / steps
+                          val r = baseR + sin(angle * lobes + phase * 0.3f).toFloat() * amp
+                          val x = cx + (r * cos(angle)).toFloat()
+                          val y = cy + (r * sin(angle)).toFloat()
+                          if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                      }
+                      path.close()
+                      drawPath(path, color = containerColor, style = Fill)
+                  }
+                  content()
+              }
+          }
+
+          // ============================================================================
+          // СЕГМЕНТИРОВАННЫЕ КАРТОЧКИ (ГРУППИРОВКА С РАЗНЫМ СКРУГЛЕНИЕМ ВЕРХ/СЕРЕДИНА/НИЗ)
+          // ============================================================================
+          fun segmentedShape(index: Int, total: Int): RoundedCornerShape {
+              val outer = 24.dp
+              val inner = 6.dp
+              return when {
+                  total <= 1 -> RoundedCornerShape(outer)
+                  index == 0 -> RoundedCornerShape(topStart = outer, topEnd = outer, bottomStart = inner, bottomEnd = inner)
+                  index == total - 1 -> RoundedCornerShape(topStart = inner, topEnd = inner, bottomStart = outer, bottomEnd = outer)
+                  else -> RoundedCornerShape(inner)
+              }
+          }
+
+          @Composable
+          fun SectionHeader(title: String) {
+              Text(
+                  text = title,
+                  color = AccentTeal,
+                  fontSize = 14.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 8.dp)
+              )
+          }
+
+          @Composable
+          fun SegmentedSettingCard(
+              index: Int,
+              total: Int,
+              icon: ImageVector,
+              title: String,
+              subtitle: String? = null,
+              shapeType: ShapeType = ShapeType.COOKIE,
+              containerColor: Color = ContainerTeal,
+              badgeText: String? = null,
+              onClick: () -> Unit
+          ) {
+              Surface(
+                  color = CardDark,
+                  shape = segmentedShape(index, total),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(vertical = 1.5.dp)
+                      .clickable(onClick = onClick)
+              ) {
+                  Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                  ) {
+                      ExpressiveMorphIcon(
+                          shapeType = shapeType,
+                          containerColor = containerColor,
+                          modifier = Modifier.size(44.dp)
+                      ) {
+                          Icon(icon, contentDescription = null, tint = TextWhite, modifier = Modifier.size(21.dp))
+                      }
+
+                      Column(
+                          modifier = Modifier
+                              .weight(1f)
+                              .padding(horizontal = 14.dp)
+                      ) {
+                          Text(title, color = TextWhite, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                          if (!subtitle.isNullOrEmpty()) {
+                              Text(
+                                  subtitle,
+                                  color = TextSub,
+                                  fontSize = 13.sp,
+                                  maxLines = 1,
+                                  overflow = TextOverflow.Ellipsis
+                              )
+                          }
+                      }
+
+                      if (badgeText != null) {
+                          Surface(
+                              color = AccentTeal,
+                              shape = RoundedCornerShape(50)
+                          ) {
+                              Text(
+                                  text = badgeText,
+                                  color = Color(0xFF0E1415),
+                                  fontSize = 13.sp,
+                                  fontWeight = FontWeight.Bold,
+                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                              )
+                          }
+                          Spacer(Modifier.width(8.dp))
+                      }
+
+                      Icon(
+                          imageVector = Icons.Default.ChevronRight,
+                          contentDescription = null,
+                          tint = TextSub
+                      )
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ПАРЯЩАЯ НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ («ПИЛЮЛЯ» + КНОПКА ПОИСКА СПРАВА)
+          // ============================================================================
+          @Composable
+          fun ExpressiveFloatingBottomBar(
+              activeTab: Int,
+              compactMode: Boolean,
+              onSelectTab: (Int) -> Unit,
+              onSearchClick: () -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              val items = listOf(
+                  Triple(0, Icons.Default.ChatBubbleOutline, "Чаты"),
+                  Triple(1, Icons.Default.PeopleOutline, "Контакты"),
+                  Triple(2, Icons.Default.PersonOutline, "Профиль"),
+                  Triple(3, Icons.Default.Settings, "Настройки")
+              )
+
+              Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.Center,
+                  modifier = modifier
+              ) {
+                  Surface(
+                      color = Color(0xFF121416),
+                      shape = RoundedCornerShape(36.dp),
+                      border = BorderStroke(1.dp, CardStroke),
+                      shadowElevation = 10.dp
+                  ) {
+                      Row(
+                          verticalAlignment = Alignment.CenterVertically,
+                          modifier = Modifier
+                              .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
+                              .padding(horizontal = 8.dp, vertical = 6.dp)
+                      ) {
+                          items.forEach { (index, icon, label) ->
+                              val isSelected = activeTab == index
+                              if (!compactMode || isSelected) {
+                                  Surface(
+                                      color = if (isSelected) ContainerTeal else Color.Transparent,
+                                      shape = RoundedCornerShape(28.dp),
+                                      modifier = Modifier
+                                          .padding(horizontal = 3.dp)
+                                          .clickable { onSelectTab(index) }
+                                  ) {
+                                      Row(
+                                          verticalAlignment = Alignment.CenterVertically,
+                                          modifier = Modifier.padding(
+                                              horizontal = if (isSelected) 16.dp else 12.dp,
+                                              vertical = 10.dp
+                                          )
+                                      ) {
+                                          Icon(
+                                              imageVector = icon,
+                                              contentDescription = label,
+                                              tint = TextWhite,
+                                              modifier = Modifier.size(22.dp)
+                                          )
+                                          AnimatedVisibility(visible = isSelected) {
+                                              Text(
+                                                  text = label,
+                                                  color = TextWhite,
+                                                  fontSize = 14.sp,
+                                                  fontWeight = FontWeight.Bold,
+                                                  modifier = Modifier.padding(start = 8.dp)
+                                              )
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  Spacer(Modifier.width(10.dp))
+
+                  // Отдельная бирюзовая кнопка «Поиск» справа от пилюли (как на референсе)
+                  Surface(
+                      color = ContainerTeal,
+                      shape = RoundedCornerShape(22.dp),
+                      border = BorderStroke(1.dp, AccentTeal.copy(alpha = 0.4f)),
+                      shadowElevation = 10.dp,
+                      modifier = Modifier
+                          .size(54.dp)
+                          .clickable(onClick = onSearchClick)
+                  ) {
+                      Box(contentAlignment = Alignment.Center) {
+                          Icon(Icons.Default.Search, contentDescription = "Поиск", tint = TextWhite)
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ЭКРАН НАСТРОЕК (1-в-1 КАК В РЕФЕРЕНСЕ НА ВИДЕО)
+          // ============================================================================
+          @Composable
+          fun SettingsReferenceScreen(
+              account: AccountProfile,
+              accounts: List<AccountProfile>,
+              listState: androidx.compose.foundation.lazy.LazyListState,
+              onSelectAccount: (Int) -> Unit,
+              onAddAccount: () -> Unit,
+              onOpenEvent: () -> Unit,
+              onOpenSaved: () -> Unit,
+              onLogout: () -> Unit,
+              onToast: (String) -> Unit
+          ) {
+              var expandAccounts by remember { mutableStateOf(false) }
+
+              LazyColumn(
+                  state = listState,
+                  contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 110.dp),
+                  modifier = Modifier.fillMaxSize()
+              ) {
+                  // Поисковая строка-пилюля с контуром
+                  item {
+                      Surface(
+                          color = CardDark,
+                          shape = RoundedCornerShape(50),
+                          border = BorderStroke(1.dp, CardStroke),
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .clickable { onToast("Поиск по настройкам") }
+                      ) {
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              modifier = Modifier.padding(horizontal = 20.dp, vertical = 15.dp)
+                          ) {
+                              Icon(Icons.Default.Search, contentDescription = null, tint = TextSub)
+                              Spacer(Modifier.width(12.dp))
+                              Text(
+                                  text = "Найти настройки ${account.username}",
+                                  color = TextSub,
+                                  fontSize = 16.sp
+                              )
+                          }
+                      }
+                  }
+
+                  // Профиль с круглой аватаркой и рамкой
+                  item {
+                      Row(
+                          verticalAlignment = Alignment.CenterVertically,
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .padding(vertical = 20.dp, horizontal = 6.dp)
+                      ) {
+                          Box(contentAlignment = Alignment.Center) {
+                              ExpressiveMorphIcon(
+                                  shapeType = ShapeType.SUNNY,
+                                  containerColor = if (account.frameReward.isNotEmpty()) AccentTeal else ContainerPurple,
+                                  modifier = Modifier.size(68.dp)
+                              ) {
+                                  Text(
+                                      text = account.name.take(1).uppercase(),
+                                      color = TextWhite,
+                                      fontSize = 26.sp,
+                                      fontWeight = FontWeight.Bold
+                                  )
+                              }
+                          }
+                          Spacer(Modifier.width(16.dp))
+                          Column(modifier = Modifier.weight(1f)) {
+                              Text(account.name, color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                              Text("Аккаунт ${account.username}", color = TextSub, fontSize = 14.sp)
+                              if (account.frameReward.isNotEmpty()) {
+                                  Text("🎃 ${account.frameReward}", color = AccentTeal, fontSize = 12.sp)
+                              }
+                          }
+                      }
+                  }
+
+                  // Раскрывашка «Аккаунт (N)»
+                  item {
+                      Surface(
+                          color = CardDark,
+                          shape = RoundedCornerShape(22.dp),
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .clickable { expandAccounts = !expandAccounts }
+                      ) {
+                          Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                              Row(verticalAlignment = Alignment.CenterVertically) {
+                                  Icon(Icons.Default.SwitchAccount, contentDescription = null, tint = TextWhite)
+                                  Spacer(Modifier.width(14.dp))
+                                  Text(
+                                      "Аккаунт (${accounts.size})",
+                                      color = TextWhite,
+                                      fontSize = 16.sp,
+                                      fontWeight = FontWeight.SemiBold,
+                                      modifier = Modifier.weight(1f)
+                                  )
+                                  Icon(
+                                      if (expandAccounts) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                      contentDescription = null,
+                                      tint = TextSub
+                                  )
+                              }
+                              AnimatedVisibility(visible = expandAccounts) {
+                                  Column(modifier = Modifier.padding(top = 12.dp)) {
+                                      accounts.forEachIndexed { idx, acc ->
+                                          Row(
+                                              verticalAlignment = Alignment.CenterVertically,
+                                              modifier = Modifier
+                                                  .fillMaxWidth()
+                                                  .clickable {
+                                                      onSelectAccount(idx)
+                                                      expandAccounts = false
+                                                  }
+                                                  .padding(vertical = 8.dp)
+                                          ) {
+                                              Icon(Icons.Default.Person, contentDescription = null, tint = AccentTeal)
+                                              Spacer(Modifier.width(10.dp))
+                                              Text("${acc.name} (@${acc.username})", color = TextWhite, modifier = Modifier.weight(1f))
+                                          }
+                                      }
+                                      TextButton(onClick = onAddAccount) {
+                                          Icon(Icons.Default.Add, contentDescription = null, tint = AccentTeal)
+                                          Spacer(Modifier.width(6.dp))
+                                          Text("Добавить аккаунт", color = AccentTeal)
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  // Секция: Ивент
+                  item { SectionHeader("Ивент") }
+                  item {
+                      SegmentedSettingCard(
+                          index = 0,
+                          total = 1,
+                          icon = Icons.Default.Celebration,
+                          title = "Ивент",
+                          subtitle = "Halloween",
+                          shapeType = ShapeType.SUNNY,
+                          containerColor = ContainerPurple,
+                          badgeText = "Подарок",
+                          onClick = onOpenEvent
+                      )
+                  }
+
+                  // Секция: Оформление и язык
+                  item { SectionHeader("Оформление и язык") }
+                  item {
+                      SegmentedSettingCard(
+                          index = 0,
+                          total = 3,
+                          icon = Icons.Default.Palette,
+                          title = "Темы",
+                          subtitle = "Оформление и цвет переписки",
+                          shapeType = ShapeType.COOKIE,
+                          containerColor = ContainerTeal,
+                          onClick = { onToast("Тема: Expressive Dark (#0E0F11)") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 1,
+                          total = 3,
+                          icon = Icons.Default.AutoAwesome,
+                          title = "Изменить",
+                          subtitle = "Аватарки, фон чата, эмодзи, реакции",
+                          shapeType = ShapeType.PENTAGON,
+                          containerColor = ContainerTeal,
+                          onClick = { onToast("Настройка рамок и реакций 🎃👻🕸️") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 2,
+                          total = 3,
+                          icon = Icons.Default.Language,
+                          title = "Язык",
+                          subtitle = "Язык приложения и свои локализации",
+                          shapeType = ShapeType.HEXAGON,
+                          containerColor = ContainerTeal,
+                          onClick = { onToast("Язык по умолчанию: Русский") }
+                      )
+                  }
+
+                  // Секция: Моё
+                  item { SectionHeader("Моё") }
+                  item {
+                      SegmentedSettingCard(
+                          index = 0,
+                          total = 3,
+                          icon = Icons.Default.Bookmark,
+                          title = "Избранное",
+                          subtitle = "Заметки и файлы",
+                          shapeType = ShapeType.CLOVER,
+                          containerColor = ContainerPurple,
+                          onClick = onOpenSaved
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 1,
+                          total = 3,
+                          icon = Icons.Default.History,
+                          title = "Истории",
+                          subtitle = "Истории тех, кто в контактах",
+                          shapeType = ShapeType.COOKIE,
+                          containerColor = ContainerPurple,
+                          onClick = { onToast("Раздел историй") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 2,
+                          total = 3,
+                          icon = Icons.Default.Folder,
+                          title = "Папки с чатами",
+                          subtitle = "Все, Личные, Группы, Каналы",
+                          shapeType = ShapeType.PENTAGON,
+                          containerColor = ContainerTeal,
+                          onClick = { onToast("Папки синхронизированы") }
+                      )
+                  }
+
+                  // Секция: Основное
+                  item { SectionHeader("Основное") }
+                  item {
+                      SegmentedSettingCard(
+                          index = 0,
+                          total = 4,
+                          icon = Icons.Default.Notifications,
+                          title = "Уведомления",
+                          subtitle = "Звук, вибрация по типам чатов",
+                          shapeType = ShapeType.COOKIE,
+                          onClick = { onToast("Push-уведомления включены") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 1,
+                          total = 4,
+                          icon = Icons.Default.Lock,
+                          title = "Конфиденциальность",
+                          subtitle = "Чёрный список, сессии, пароль",
+                          shapeType = ShapeType.HEXAGON,
+                          onClick = { onToast("Защита активна") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 2,
+                          total = 4,
+                          icon = Icons.Default.Storage,
+                          title = "Данные и память",
+                          subtitle = "Кэш Room и автозагрузка медиа",
+                          shapeType = ShapeType.CLOVER,
+                          onClick = { onToast("Кэш очищен (0 МБ)") }
+                      )
+                  }
+                  item {
+                      SegmentedSettingCard(
+                          index = 3,
+                          total = 4,
+                          icon = Icons.Default.Logout,
+                          title = "Выйти",
+                          subtitle = "Завершить текущую сессию",
+                          shapeType = ShapeType.SUNNY,
+                          containerColor = Color(0xFF4A2528),
+                          onClick = onLogout
+                      )
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ЭКРАН ИВЕНТА HALLOWEEN (С МОРФИНГОМ, ПОЛЗУНКОМ, 3 НАГРАДАМИ И ВСПЫШКОЙ)
+          // ============================================================================
+          @Composable
+          fun HalloweenEventScreen(
+              onBack: () -> Unit,
+              onRewardSelected: (String) -> Unit
+          ) {
+              val view = LocalView.current
+              val scope = rememberCoroutineScope()
+
+              // Стадии ивента как на видео:
+              // 0: Главный экран с ползунком «Потяните, чтобы открыть»
+              // 1: Анимация открытия (Android Case -> Нажми)
+              // 2: «Выберите одну» из 3 морф-наград
+              // 3: Белая вспышка и возврат в настройки
+              var stage by remember { mutableIntStateOf(0) }
+              var dragProgress by remember { mutableFloatStateOf(0f) }
+              var whiteFlashAlpha by remember { mutableFloatStateOf(0f) }
+
+              BackHandler(onBack = onBack)
+
+              val infinite = rememberInfiniteTransition(label = "bg_shapes")
+              val floatAnim by infinite.animateFloat(
+                  initialValue = 0f,
+                  targetValue = 1f,
+                  animationSpec = infiniteRepeatable(tween(5000, easing = LinearEasing), RepeatMode.Reverse),
+                  label = "float"
+              )
+
+              Box(modifier = Modifier.fillMaxSize().background(BgDark)) {
+                  // Плывущие полупрозрачные формы на фоне (появляются при протягивании ползунка)
+                  val bgAlpha = (dragProgress * 0.9f).coerceAtLeast(if (stage > 0) 0.85f else 0f)
+                  if (bgAlpha > 0.02f) {
+                      Canvas(modifier = Modifier.fillMaxSize().alpha(bgAlpha)) {
+                          val circles = listOf(
+                              Triple(0.2f, 0.18f, 190f),
+                              Triple(0.85f, 0.25f, 240f),
+                              Triple(0.15f, 0.75f, 220f),
+                              Triple(0.8f, 0.72f, 260f),
+                              Triple(0.5f, 0.45f, 160f)
+                          )
+                          circles.forEachIndexed { idx, (rx, ry, rad) ->
+                              val dy = sin((floatAnim + idx * 0.3f) * 3.14f).toFloat() * 40f
+                              drawCircle(
+                                  color = if (idx % 2 == 0) ContainerTeal.copy(alpha = 0.45f) else ContainerPurple.copy(alpha = 0.4f),
+                                  radius = rad * (0.8f + dragProgress * 0.4f),
+                                  center = Offset(size.width * rx, size.height * ry + dy)
+                              )
+                          }
+                      }
+                  }
+
+                  when (stage) {
+                      0 -> {
+                          LazyColumn(
+                              contentPadding = PaddingValues(16.dp),
+                              modifier = Modifier.fillMaxSize()
+                          ) {
+                              // Кастомный верхний бар: круглая кнопка назад + чип «Ивент»
+                              item {
+                                  Row(
+                                      verticalAlignment = Alignment.CenterVertically,
+                                      modifier = Modifier.padding(top = 8.dp, bottom = 20.dp)
+                                  ) {
+                                      Surface(
+                                          color = CardDark,
+                                          shape = CircleShape,
+                                          modifier = Modifier.size(44.dp).clickable(onClick = onBack)
+                                      ) {
+                                          Box(contentAlignment = Alignment.Center) {
+                                              Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = TextWhite)
+                                          }
+                                      }
+                                      Spacer(Modifier.width(10.dp))
+                                      Surface(color = CardDark, shape = RoundedCornerShape(50)) {
+                                          Row(
+                                              verticalAlignment = Alignment.CenterVertically,
+                                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                          ) {
+                                              Text("🎃", fontSize = 16.sp)
+                                              Spacer(Modifier.width(8.dp))
+                                              Text("Ивент", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                          }
+                                      }
+                                  }
+                              }
+
+                              // Большая морф-форма с тыквой в центре
+                              item {
+                                  Column(
+                                      horizontalAlignment = Alignment.CenterHorizontally,
+                                      modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                                  ) {
+                                      val scale = 1f + dragProgress * 0.25f
+                                      val lobes = if (dragProgress > 0.5f) 8 else 12
+                                      ExpressiveMorphIcon(
+                                          shapeType = ShapeType.SUNNY,
+                                          lobeCountOverride = lobes,
+                                          containerColor = Color(0xFF394E50),
+                                          modifier = Modifier.size(190.dp).scale(scale).rotate(dragProgress * 35f)
+                                      ) {
+                                          Text("🎃", fontSize = 74.sp)
+                                      }
+                                      Spacer(Modifier.height(14.dp))
+                                      Text(
+                                          text = if (dragProgress > 0.8f) "Android Case" else "Halloween",
+                                          color = TextWhite,
+                                          fontSize = 32.sp,
+                                          fontWeight = FontWeight.Bold
+                                      )
+                                  }
+                              }
+
+                              // Ползунок «Потяните, чтобы открыть»
+                              item {
+                                  Spacer(Modifier.height(14.dp))
+                                  EventSlideToOpen(
+                                      progress = dragProgress,
+                                      onProgressChange = { p ->
+                                          dragProgress = p
+                                      },
+                                      onUnlocked = {
+                                          view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                          stage = 1
+                                      }
+                                  )
+                                  Spacer(Modifier.height(22.dp))
+                              }
+
+                              // 3 сегментированные карточки описания под ползунком (как на видео 00:03)
+                              item {
+                                  Surface(
+                                      color = CardDark,
+                                      shape = segmentedShape(0, 3),
+                                      modifier = Modifier.fillMaxWidth().padding(vertical = 1.5.dp)
+                                  ) {
+                                      Column(modifier = Modifier.padding(18.dp)) {
+                                          Text("Тема «Хэллоуин»", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                          Spacer(Modifier.height(4.dp))
+                                          Text(
+                                              "Первая плитка в списке цветов. На обоях плывут тыквы, призраки и летучие мыши.",
+                                              color = TextSub,
+                                              fontSize = 14.sp
+                                          )
+                                      }
+                                  }
+                              }
+                              item {
+                                  Surface(
+                                      color = CardDark,
+                                      shape = segmentedShape(1, 3),
+                                      modifier = Modifier.fillMaxWidth().padding(vertical = 1.5.dp)
+                                  ) {
+                                      Column(modifier = Modifier.padding(18.dp)) {
+                                          Text("Реакции", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                          Spacer(Modifier.height(4.dp))
+                                          Text(
+                                              "Над обычными реакциями стоит вторая пилюля: 🎃 👻 🕸️ 🕷️ 🧛 🍬. Удержите любую, чтобы увидеть большой эффект.",
+                                              color = TextSub,
+                                              fontSize = 14.sp
+                                          )
+                                      }
+                                  }
+                              }
+                              item {
+                                  Surface(
+                                      color = CardDark,
+                                      shape = segmentedShape(2, 3),
+                                      modifier = Modifier.fillMaxWidth().padding(vertical = 1.5.dp)
+                                  ) {
+                                      Column(modifier = Modifier.padding(18.dp)) {
+                                          Text("Скоро", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                          Spacer(Modifier.height(4.dp))
+                                          Text(
+                                              "«Сладость или гадость» раз в день с монетками и хэллоуинские подарки.",
+                                              color = TextSub,
+                                              fontSize = 14.sp
+                                          )
+                                      }
+                                  }
+                              }
+                          }
+                      }
+
+                      // Стадия 1: Демонстрация наград и экран «Нажми» (00:08)
+                      1 -> {
+                          Column(
+                              horizontalAlignment = Alignment.CenterHorizontally,
+                              verticalArrangement = Arrangement.Center,
+                              modifier = Modifier
+                                  .fillMaxSize()
+                                  .clickable {
+                                      view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                      stage = 2
+                                  }
+                          ) {
+                              ExpressiveMorphIcon(
+                                  shapeType = ShapeType.SUNNY,
+                                  containerColor = Color(0xFF34494B),
+                                  modifier = Modifier.size(180.dp)
+                              ) {
+                                  Text("🎃", fontSize = 70.sp)
+                              }
+                              Spacer(Modifier.height(120.dp))
+                              Text("Нажми", color = TextWhite, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                          }
+                      }
+
+                      // Стадия 2: «Выберите одну» из 3 наград (00:11 - 00:15)
+                      2 -> {
+                          val rewards = listOf(
+                              Triple("👻", "Рамка кружков\n«Хэллоуин»", "Рамка кружков «Хэллоуин»"),
+                              Triple("🎃", "Рамка аватарки\n«Хэллоуин»", "Рамка аватарки «Хэллоуин»"),
+                              Triple("👤4", "Четвёртый\nаккаунт", "Четвёртый аккаунт")
+                          )
+
+                          Column(
+                              horizontalAlignment = Alignment.CenterHorizontally,
+                              verticalArrangement = Arrangement.Center,
+                              modifier = Modifier.fillMaxSize().padding(16.dp)
+                          ) {
+                              Text("Выберите одну", color = TextWhite, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                              Spacer(Modifier.height(36.dp))
+                              Row(
+                                  horizontalArrangement = Arrangement.SpaceEvenly,
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  rewards.forEachIndexed { idx, (emoji, label, fullReward) ->
+                                      Column(
+                                          horizontalAlignment = Alignment.CenterHorizontally,
+                                          modifier = Modifier
+                                              .weight(1f)
+                                              .clickable {
+                                                  view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                                  scope.launch {
+                                                      // Светлая вспышка на весь экран (00:18)
+                                                      for (i in 1..10) {
+                                                          whiteFlashAlpha = i / 10f
+                                                          delay(25)
+                                                      }
+                                                      delay(220)
+                                                      onRewardSelected(fullReward)
+                                                  }
+                                              }
+                                      ) {
+                                          ExpressiveMorphIcon(
+                                              shapeType = if (idx == 0) ShapeType.CLOVER else if (idx == 1) ShapeType.SUNNY else ShapeType.COOKIE,
+                                              containerColor = Color(0xFF344E50),
+                                              modifier = Modifier.size(96.dp)
+                                          ) {
+                                              Text(emoji, fontSize = 34.sp, color = TextWhite)
+                                          }
+                                          Spacer(Modifier.height(10.dp))
+                                          Text(
+                                              text = label,
+                                              color = TextWhite,
+                                              fontSize = 13.sp,
+                                              fontWeight = FontWeight.SemiBold,
+                                              textAlign = TextAlign.Center
+                                          )
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  // Белая вспышка при открытии подарка
+                  if (whiteFlashAlpha > 0f) {
+                      Box(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .background(Color.White.copy(alpha = whiteFlashAlpha))
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          fun EventSlideToOpen(
+              progress: Float,
+              onProgressChange: (Float) -> Unit,
+              onUnlocked: () -> Unit
+          ) {
+              var trackWidthPx by remember { mutableFloatStateOf(1f) }
+              val thumbSizeDp = 56.dp
+              val density = LocalDensity.current
+              val thumbSizePx = with(density) { thumbSizeDp.toPx() }
+              val maxDragPx = (trackWidthPx - thumbSizePx - with(density) { 16.dp.toPx() }).coerceAtLeast(1f)
+
+              Surface(
+                  color = CardDark,
+                  shape = RoundedCornerShape(36.dp),
+                  border = BorderStroke(1.dp, CardStroke),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .height(68.dp)
+                      .onSizeChanged { trackWidthPx = it.width.toFloat() }
+              ) {
+                  Box(
+                      contentAlignment = Alignment.CenterStart,
+                      modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
+                  ) {
+                      // Заполнение дорожки вслед за ползунком
+                      Box(
+                          modifier = Modifier
+                              .fillMaxHeight(0.82f)
+                              .fillMaxWidth((progress + 0.15f).coerceAtMost(1f))
+                              .clip(RoundedCornerShape(32.dp))
+                              .background(ContainerTeal.copy(alpha = 0.65f))
+                      )
+
+                      Text(
+                          text = "Потяните, чтобы открыть",
+                          color = TextWhite.copy(alpha = (1f - progress * 1.3f).coerceIn(0f, 1f)),
+                          fontSize = 15.sp,
+                          modifier = Modifier.align(Alignment.Center)
+                      )
+
+                      Surface(
+                          color = AccentTeal,
+                          shape = RoundedCornerShape(24.dp),
+                          modifier = Modifier
+                              .offset { IntOffset((progress * maxDragPx).roundToInt(), 0) }
+                              .size(width = 64.dp, height = 52.dp)
+                              .draggable(
+                                  orientation = Orientation.Horizontal,
+                                  state = rememberDraggableState { delta ->
+                                      val newPx = (progress * maxDragPx + delta).coerceIn(0f, maxDragPx)
+                                      onProgressChange(newPx / maxDragPx)
+                                  },
+                                  onDragStopped = {
+                                      if (progress > 0.78f) {
+                                          onProgressChange(1f)
+                                          onUnlocked()
+                                      } else {
+                                          onProgressChange(0f)
+                                      }
+                                  }
+                              )
+                      ) {
+                          Box(contentAlignment = Alignment.Center) {
+                              Icon(
+                                  imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                  contentDescription = null,
+                                  tint = Color(0xFF0E1415)
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ЭКРАН РЕГИСТРАЦИИ И ВХОДА ПО ШАГАМ (С ПРОВЕРКОЙ @USERNAME И ПАРОЛЯ)
+          // ============================================================================
+          @Composable
+          fun AuthFlowScreen(onComplete: (AccountProfile) -> Unit) {
+              var mode by remember { mutableStateOf("WELCOME") } // WELCOME, REGISTER, LOGIN
+              var regStep by remember { mutableIntStateOf(1) } // 1:@username, 2:email+pass, 3:code, 4:profile
+
+              var username by remember { mutableStateOf("") }
+              var email by remember { mutableStateOf("") }
+              var password by remember { mutableStateOf("") }
+              var passwordRepeat by remember { mutableStateOf("") }
+              var showPass by remember { mutableStateOf(false) }
+              var verifyCode by remember { mutableStateOf("") }
+              var displayName by remember { mutableStateOf("") }
+              var bio by remember { mutableStateOf("") }
+              var errorText by remember { mutableStateOf<String?>(null) }
+
+              Column(
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.Center,
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(24.dp)
+                      .verticalScroll(rememberScrollState())
+              ) {
+                  ExpressiveMorphIcon(
+                      shapeType = ShapeType.SUNNY,
+                      containerColor = ContainerTeal,
+                      modifier = Modifier.size(136.dp)
+                  ) {
+                      Icon(Icons.Default.Forum, contentDescription = null, tint = AccentTeal, modifier = Modifier.size(56.dp))
+                  }
+
+                  Spacer(Modifier.height(20.dp))
+
+                  when (mode) {
+                      "WELCOME" -> {
+                          Text("Messenger", color = TextWhite, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                          Spacer(Modifier.height(8.dp))
+                          Text(
+                              "Быстрое общение в стиле Material Expressive",
+                              color = TextSub,
+                              fontSize = 15.sp,
+                              textAlign = TextAlign.Center
+                          )
+                          Spacer(Modifier.height(36.dp))
+                          Button(
+                              onClick = { mode = "REGISTER"; regStep = 1; errorText = null },
+                              colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, contentColor = BgDark),
+                              shape = RoundedCornerShape(50),
+                              modifier = Modifier.fillMaxWidth().height(56.dp)
+                          ) {
+                              Text("Создать аккаунт", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                          }
+                          Spacer(Modifier.height(12.dp))
+                          OutlinedButton(
+                              onClick = { mode = "LOGIN"; errorText = null },
+                              shape = RoundedCornerShape(50),
+                              border = BorderStroke(1.dp, AccentTeal),
+                              modifier = Modifier.fillMaxWidth().height(56.dp)
+                          ) {
+                              Text("Войти", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                          }
+                      }
+
+                      "REGISTER" -> {
+                          Text("Регистрация • Шаг $regStep из 4", color = AccentTeal, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                          Spacer(Modifier.height(16.dp))
+
+                          Surface(color = CardDark, shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
+                              Column(modifier = Modifier.padding(20.dp)) {
+                                  when (regStep) {
+                                      1 -> {
+                                          Text("Выберите @юзернейм", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                          Spacer(Modifier.height(6.dp))
+                                          Text("Латиница, цифры и «_», от 5 до 32 символов", color = TextSub, fontSize = 13.sp)
+                                          Spacer(Modifier.height(16.dp))
+                                          OutlinedTextField(
+                                              value = username,
+                                              onValueChange = {
+                                                  username = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' }.take(32)
+                                                  errorText = null
+                                              },
+                                              label = { Text("@юзернейм") },
+                                              singleLine = true,
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                          val valid = username.length >= 5 && username != "admin"
+                                          Spacer(Modifier.height(8.dp))
+                                          Text(
+                                              text = when {
+                                                  username.isEmpty() -> "Введите минимум 5 символов"
+                                                  username == "admin" -> "❌ Занят"
+                                                  valid -> "✓ Свободен: @$username"
+                                                  else -> "Ещё ${5 - username.length} симв."
+                                              },
+                                              color = if (valid) AccentTeal else TextSub,
+                                              fontSize = 13.sp
+                                          )
+                                      }
+
+                                      2 -> {
+                                          Text("Почта и пароль", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                          Spacer(Modifier.height(14.dp))
+                                          OutlinedTextField(
+                                              value = email,
+                                              onValueChange = { email = it; errorText = null },
+                                              label = { Text("Email") },
+                                              singleLine = true,
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                          Spacer(Modifier.height(10.dp))
+                                          OutlinedTextField(
+                                              value = password,
+                                              onValueChange = { password = it; errorText = null },
+                                              label = { Text("Пароль") },
+                                              singleLine = true,
+                                              visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                                              trailingIcon = {
+                                                  IconButton(onClick = { showPass = !showPass }) {
+                                                      Icon(if (showPass) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                                                  }
+                                              },
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                          Spacer(Modifier.height(10.dp))
+                                          OutlinedTextField(
+                                              value = passwordRepeat,
+                                              onValueChange = { passwordRepeat = it; errorText = null },
+                                              label = { Text("Повторите пароль") },
+                                              singleLine = true,
+                                              visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                          val strength = when {
+                                              password.length >= 8 -> "Надёжный пароль"
+                                              password.length >= 5 -> "Средний пароль"
+                                              else -> "Слишком короткий"
+                                          }
+                                          Spacer(Modifier.height(6.dp))
+                                          Text("Надёжность: $strength", color = AccentTeal, fontSize = 12.sp)
+                                      }
+
+                                      3 -> {
+                                          Text("Подтверждение почты", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                          Spacer(Modifier.height(6.dp))
+                                          Text("Введите 4-значный код, отправленный на $email (подойдёт любой из 4 цифр для демо)", color = TextSub, fontSize = 13.sp)
+                                          Spacer(Modifier.height(16.dp))
+                                          OutlinedTextField(
+                                              value = verifyCode,
+                                              onValueChange = { verifyCode = it.filter { c -> c.isDigit() }.take(4) },
+                                              label = { Text("Код подтверждения") },
+                                              singleLine = true,
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                      }
+
+                                      4 -> {
+                                          Text("Ваш профиль", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                          Spacer(Modifier.height(14.dp))
+                                          OutlinedTextField(
+                                              value = displayName,
+                                              onValueChange = { displayName = it },
+                                              label = { Text("Ваше имя") },
+                                              singleLine = true,
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                          Spacer(Modifier.height(10.dp))
+                                          OutlinedTextField(
+                                              value = bio,
+                                              onValueChange = { bio = it },
+                                              label = { Text("О себе (необязательно)") },
+                                              singleLine = true,
+                                              shape = RoundedCornerShape(50),
+                                              modifier = Modifier.fillMaxWidth()
+                                          )
+                                      }
+                                  }
+
+                                  if (errorText != null) {
+                                      Spacer(Modifier.height(10.dp))
+                                      Text(errorText!!, color = Color(0xFFFF8A80), fontSize = 13.sp)
+                                  }
+
+                                  Spacer(Modifier.height(20.dp))
+                                  Button(
+                                      onClick = {
+                                          when (regStep) {
+                                              1 -> if (username.length >= 5) regStep = 2 else errorText = "Юзернейм должен быть от 5 символов"
+                                              2 -> if (!email.contains("@")) errorText = "Укажите корректную почту"
+                                                   else if (password.length < 5) errorText = "Пароль от 5 символов"
+                                                   else if (password != passwordRepeat) errorText = "Пароли не совпадают"
+                                                   else regStep = 3
+                                              3 -> if (verifyCode.length == 4) regStep = 4 else errorText = "Введите 4 цифры кода"
+                                              4 -> if (displayName.isBlank()) errorText = "Укажите ваше имя"
+                                                   else onComplete(AccountProfile(displayName.trim(), username, email, bio))
+                                          }
+                                      },
+                                      colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, contentColor = BgDark),
+                                      shape = RoundedCornerShape(50),
+                                      modifier = Modifier.fillMaxWidth().height(52.dp)
+                                  ) {
+                                      Text(if (regStep < 4) "Далее" else "Завершить регистрацию", fontWeight = FontWeight.Bold)
+                                  }
+                              }
+                          }
+                      }
+
+                      "LOGIN" -> {
+                          Surface(color = CardDark, shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
+                              Column(modifier = Modifier.padding(20.dp)) {
+                                  Text("Вход в аккаунт", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                  Spacer(Modifier.height(14.dp))
+                                  OutlinedTextField(
+                                      value = username,
+                                      onValueChange = { username = it; errorText = null },
+                                      label = { Text("Почта или @юзернейм") },
+                                      singleLine = true,
+                                      shape = RoundedCornerShape(50),
+                                      modifier = Modifier.fillMaxWidth()
+                                  )
+                                  Spacer(Modifier.height(10.dp))
+                                  OutlinedTextField(
+                                      value = password,
+                                      onValueChange = { password = it; errorText = null },
+                                      label = { Text("Пароль") },
+                                      singleLine = true,
+                                      visualTransformation = PasswordVisualTransformation(),
+                                      shape = RoundedCornerShape(50),
+                                      modifier = Modifier.fillMaxWidth()
+                                  )
+                                  if (errorText != null) {
+                                      Spacer(Modifier.height(8.dp))
+                                      Text(errorText!!, color = Color(0xFFFF8A80), fontSize = 13.sp)
+                                  }
+                                  Spacer(Modifier.height(18.dp))
+                                  Button(
+                                      onClick = {
+                                          if (username.length < 3 || password.length < 4) {
+                                              errorText = "Проверьте логин и пароль"
+                                          } else {
+                                              val cleanUser = username.removePrefix("@").substringBefore("@")
+                                              onComplete(AccountProfile("Makslim Zevlachkov", cleanUser, "$cleanUser@mail.ru"))
+                                          }
+                                      },
+                                      colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, contentColor = BgDark),
+                                      shape = RoundedCornerShape(50),
+                                      modifier = Modifier.fillMaxWidth().height(52.dp)
+                                  ) {
+                                      Text("Войти", fontWeight = FontWeight.Bold)
+                                  }
+                                  TextButton(
+                                      onClick = { errorText = "Ссылка для сброса пароля отправлена на почту" },
+                                      modifier = Modifier.align(Alignment.CenterHorizontally)
+                                  ) {
+                                      Text("Забыли пароль?", color = AccentTeal)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ВКЛАДКА ЧАТОВ (ПАПКИ, СЕГМЕНТИРОВАННЫЕ КАРТОЧКИ, КНОПКА СОЗДАНИЯ)
+          // ============================================================================
+          @Composable
+          fun ChatsTabScreen(
+              dialogs: MutableList<ChatDialog>,
+              listState: androidx.compose.foundation.lazy.LazyListState,
+              onOpenChat: (String) -> Unit,
+              onNewChat: () -> Unit,
+              onOpenSearch: () -> Unit,
+              onToast: (String) -> Unit
+          ) {
+              val folders = listOf("Все", "Личные", "Группы", "Каналы")
+              var selectedFolder by remember { mutableStateOf("Все") }
+
+              val filtered = dialogs.filter {
+                  selectedFolder == "Все" || it.folder == selectedFolder
+              }
+
+              LazyColumn(
+                  state = listState,
+                  contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 110.dp),
+                  modifier = Modifier.fillMaxSize()
+              ) {
+                  // Верхняя поисковая строка-пилюля + кнопка «Новый чат»
+                  item {
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                          Surface(
+                              color = CardDark,
+                              shape = RoundedCornerShape(50),
+                              border = BorderStroke(1.dp, CardStroke),
+                              modifier = Modifier.weight(1f).clickable(onClick = onOpenSearch)
+                          ) {
+                              Row(
+                                  verticalAlignment = Alignment.CenterVertically,
+                                  modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)
+                              ) {
+                                  Icon(Icons.Default.Search, contentDescription = null, tint = TextSub)
+                                  Spacer(Modifier.width(10.dp))
+                                  Text("Поиск чатов и сообщений", color = TextSub, fontSize = 15.sp)
+                              }
+                          }
+                          Spacer(Modifier.width(10.dp))
+                          Surface(
+                              color = ContainerTeal,
+                              shape = CircleShape,
+                              modifier = Modifier.size(50.dp).clickable(onClick = onNewChat)
+                          ) {
+                              Box(contentAlignment = Alignment.Center) {
+                                  Icon(Icons.Default.Edit, contentDescription = "Новый", tint = TextWhite)
+                              }
+                          }
+                      }
+                  }
+
+                  // Чипы папок: Все, Личные, Группы, Каналы
+                  item {
+                      LazyRow(
+                          horizontalArrangement = Arrangement.spacedBy(8.dp),
+                          modifier = Modifier.padding(vertical = 14.dp)
+                      ) {
+                          items(folders) { folder ->
+                              val active = selectedFolder == folder
+                              Surface(
+                                  color = if (active) AccentTeal else CardDark,
+                                  shape = RoundedCornerShape(50),
+                                  border = BorderStroke(1.dp, if (active) AccentTeal else CardStroke),
+                                  modifier = Modifier.clickable { selectedFolder = folder }
+                              ) {
+                                  Text(
+                                      text = folder,
+                                      color = if (active) BgDark else TextWhite,
+                                      fontWeight = FontWeight.Bold,
+                                      fontSize = 14.sp,
+                                      modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
+                                  )
+                              }
+                          }
+                      }
+                  }
+
+                  item { SectionHeader("Диалоги (${filtered.size})") }
+
+                  items(filtered.size) { idx ->
+                      val chat = filtered[idx]
+                      val lastMsg = chat.messages.lastOrNull()
+                      Surface(
+                          color = CardDark,
+                          shape = segmentedShape(idx, filtered.size),
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .padding(vertical = 1.5.dp)
+                              .clickable { onOpenChat(chat.id) }
+                      ) {
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                          ) {
+                              ExpressiveMorphIcon(
+                                  shapeType = chat.shape,
+                                  containerColor = if (chat.isChannel) ContainerPurple else ContainerTeal,
+                                  modifier = Modifier.size(52.dp)
+                              ) {
+                                  Text(chat.title.take(1).uppercase(), color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                              }
+
+                              Column(
+                                  modifier = Modifier.weight(1f).padding(horizontal = 14.dp)
+                              ) {
+                                  Row(verticalAlignment = Alignment.CenterVertically) {
+                                      Text(chat.title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                                      if (chat.muted) {
+                                          Spacer(Modifier.width(6.dp))
+                                          Icon(Icons.Default.VolumeOff, null, tint = TextSub, modifier = Modifier.size(15.dp))
+                                      }
+                                  }
+                                  Spacer(Modifier.height(3.dp))
+                                  Text(
+                                      text = lastMsg?.text ?: "Нет сообщений",
+                                      color = TextSub,
+                                      fontSize = 14.sp,
+                                      maxLines = 1,
+                                      overflow = TextOverflow.Ellipsis
+                                  )
+                              }
+
+                              Column(horizontalAlignment = Alignment.End) {
+                                  Text(lastMsg?.time ?: "", color = TextSub, fontSize = 12.sp)
+                                  Spacer(Modifier.height(6.dp))
+                                  if (chat.unread > 0) {
+                                      Surface(color = AccentTeal, shape = CircleShape) {
+                                          Text(
+                                              text = chat.unread.toString(),
+                                              color = BgDark,
+                                              fontSize = 12.sp,
+                                              fontWeight = FontWeight.Bold,
+                                              modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                          )
+                                      }
+                                  } else if (chat.pinned) {
+                                      Icon(Icons.Default.PushPin, null, tint = TextSub, modifier = Modifier.size(16.dp))
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ЭКРАН ВНУТРИ ЧАТА / КАНАЛА (ПУЗЫРИ, РЕАКЦИИ ХЭЛЛОУИН, ГОЛОСОВЫЕ, ОТВЕТЫ)
+          // ============================================================================
+          @OptIn(ExperimentalFoundationApi::class)
+          @Composable
+          fun ChatDetailScreen(
+              chat: ChatDialog,
+              onBack: () -> Unit,
+              onToast: (String) -> Unit
+          ) {
+              var inputText by remember { mutableStateOf("") }
+              var selectedMsgForReaction by remember { mutableStateOf<Long?>(null) }
+              var replyTarget by remember { mutableStateOf<ChatMessage?>(null) }
+
+              BackHandler(onBack = onBack)
+
+              Column(modifier = Modifier.fillMaxSize().background(BgDark)) {
+                  // Верхняя панель с круглой кнопкой назад
+                  Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(horizontal = 14.dp, vertical = 12.dp)
+                  ) {
+                      Surface(
+                          color = CardDark,
+                          shape = CircleShape,
+                          modifier = Modifier.size(44.dp).clickable(onClick = onBack)
+                      ) {
+                          Box(contentAlignment = Alignment.Center) {
+                              Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = TextWhite)
+                          }
+                      }
+                      Spacer(Modifier.width(12.dp))
+                      ExpressiveMorphIcon(shapeType = chat.shape, containerColor = ContainerTeal, modifier = Modifier.size(44.dp)) {
+                          Text(chat.title.take(1), color = TextWhite, fontWeight = FontWeight.Bold)
+                      }
+                      Spacer(Modifier.width(12.dp))
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(chat.title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                          Text(
+                              if (chat.isChannel) "${chat.subscribers} подписчиков" else "в сети • печатает...",
+                              color = AccentTeal,
+                              fontSize = 12.sp
+                          )
+                      }
+                  }
+
+                  // Список сообщений
+                  LazyColumn(
+                      contentPadding = PaddingValues(16.dp),
+                      verticalArrangement = Arrangement.spacedBy(10.dp),
+                      modifier = Modifier.weight(1f)
+                  ) {
+                      items(chat.messages, key = { it.id }) { msg ->
+                          Column(
+                              horizontalAlignment = if (msg.isMine) Alignment.End else Alignment.Start,
+                              modifier = Modifier.fillMaxWidth()
+                          ) {
+                              // Пилюля с Halloween-реакциями при долгом нажатии
+                              AnimatedVisibility(visible = selectedMsgForReaction == msg.id) {
+                                  Surface(
+                                      color = CardDark,
+                                      shape = RoundedCornerShape(50),
+                                      border = BorderStroke(1.dp, AccentTeal),
+                                      modifier = Modifier.padding(bottom = 6.dp)
+                                  ) {
+                                      Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                                          listOf("🎃", "👻", "🕸️", "🕷️", "🧛", "🍬", "❤️", "🔥").forEach { emoji ->
+                                              Text(
+                                                  text = emoji,
+                                                  fontSize = 20.sp,
+                                                  modifier = Modifier
+                                                      .padding(horizontal = 5.dp)
+                                                      .clickable {
+                                                          val idx = chat.messages.indexOfFirst { it.id == msg.id }
+                                                          if (idx != -1) {
+                                                              chat.messages[idx] = msg.copy(reactions = msg.reactions + emoji)
+                                                          }
+                                                          selectedMsgForReaction = null
+                                                      }
+                                              )
+                                          }
+                                      }
+                                  }
+                              }
+
+                              Surface(
+                                  color = if (msg.isMine) ContainerTeal else CardDark,
+                                  shape = RoundedCornerShape(
+                                      topStart = 22.dp,
+                                      topEnd = 22.dp,
+                                      bottomStart = if (msg.isMine) 22.dp else 6.dp,
+                                      bottomEnd = if (msg.isMine) 6.dp else 22.dp
+                                  ),
+                                  modifier = Modifier.combinedClickable(
+                                      onClick = { replyTarget = msg },
+                                      onLongClick = { selectedMsgForReaction = if (selectedMsgForReaction == msg.id) null else msg.id }
+                                  )
+                              ) {
+                                  Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                      if (msg.replyTo != null) {
+                                          Text("↪ ${msg.replyTo}", color = AccentTeal, fontSize = 12.sp)
+                                          Spacer(Modifier.height(4.dp))
+                                      }
+                                      Text(msg.text, color = TextWhite, fontSize = 15.sp)
+                                      Spacer(Modifier.height(4.dp))
+                                      Row(verticalAlignment = Alignment.CenterVertically) {
+                                          msg.reactions.forEach { r ->
+                                              Text(r, fontSize = 14.sp, modifier = Modifier.padding(end = 4.dp))
+                                          }
+                                          Text(
+                                              text = if (msg.isMine) "${msg.time} ✓✓" else msg.time,
+                                              color = TextSub,
+                                              fontSize = 11.sp
+                                          )
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  // Плашка ответа
+                  if (replyTarget != null) {
+                      Surface(color = CardDark, modifier = Modifier.fillMaxWidth()) {
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                          ) {
+                              Text("Ответ: ${replyTarget!!.text}", color = AccentTeal, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                              IconButton(onClick = { replyTarget = null }) {
+                                  Icon(Icons.Default.Close, null, tint = TextSub)
+                              }
+                          }
+                      }
+                  }
+
+                  // Нижняя панель ввода
+                  Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      modifier = Modifier.fillMaxWidth().padding(12.dp)
+                  ) {
+                      IconButton(onClick = { onToast("Прикрепление фото / файла") }) {
+                          Icon(Icons.Default.AttachFile, contentDescription = null, tint = AccentTeal)
+                      }
+                      OutlinedTextField(
+                          value = inputText,
+                          onValueChange = { inputText = it },
+                          placeholder = { Text("Сообщение...") },
+                          singleLine = true,
+                          shape = RoundedCornerShape(50),
+                          modifier = Modifier.weight(1f)
+                      )
+                      Spacer(Modifier.width(8.dp))
+                      Surface(
+                          color = AccentTeal,
+                          shape = CircleShape,
+                          modifier = Modifier
+                              .size(50.dp)
+                              .clickable {
+                                  if (inputText.isNotBlank()) {
+                                      chat.messages.add(
+                                          ChatMessage(
+                                              id = System.currentTimeMillis(),
+                                              sender = "Вы",
+                                              text = inputText.trim(),
+                                              time = "Сейчас",
+                                              isMine = true,
+                                              replyTo = replyTarget?.text
+                                          )
+                                      )
+                                      inputText = ""
+                                      replyTarget = null
+                                  } else {
+                                      onToast("Удерживайте для записи голосового")
+                                  }
+                              }
+                      ) {
+                          Box(contentAlignment = Alignment.Center) {
+                              Icon(
+                                  if (inputText.isBlank()) Icons.Default.Mic else Icons.AutoMirrored.Filled.Send,
+                                  contentDescription = null,
+                                  tint = BgDark
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+
+          // ============================================================================
+          // ПОИСК, КОНТАКТЫ, ПРОФИЛЬ И СОЗДАНИЕ КАНАЛА/ГРУППЫ
+          // ============================================================================
+          @Composable
+          fun GlobalSearchScreen(
+              dialogs: List<ChatDialog>,
+              onBack: () -> Unit,
+              onOpenChat: (String) -> Unit
+          ) {
+              var query by remember { mutableStateOf("") }
+              BackHandler(onBack = onBack)
+
+              Column(modifier = Modifier.fillMaxSize().background(BgDark).padding(16.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                      Surface(color = CardDark, shape = CircleShape, modifier = Modifier.size(44.dp).clickable(onClick = onBack)) {
+                          Box(contentAlignment = Alignment.Center) {
+                              Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
+                          }
+                      }
+                      Spacer(Modifier.width(10.dp))
+                      OutlinedTextField(
+                          value = query,
+                          onValueChange = { query = it },
+                          placeholder = { Text("Поиск по @юзернейму и чатам") },
+                          singleLine = true,
+                          shape = RoundedCornerShape(50),
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+
+                  SectionHeader("Люди, каналы и группы")
+                  val results = dialogs.filter {
+                      it.title.contains(query, ignoreCase = true) || it.username.contains(query, ignoreCase = true)
+                  }
+                  results.forEachIndexed { idx, d ->
+                      SegmentedSettingCard(
+                          index = idx,
+                          total = results.size,
+                          icon = if (d.isChannel) Icons.Default.Campaign else Icons.Default.Person,
+                          title = d.title,
+                          subtitle = "@${d.username}",
+                          onClick = { onOpenChat(d.id) }
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          fun ContactsTabScreen(
+              dialogs: List<ChatDialog>,
+              onOpenChat: (String) -> Unit,
+              onOpenSearch: () -> Unit,
+              onToast: (String) -> Unit
+          ) {
+              LazyColumn(
+                  contentPadding = PaddingValues(16.dp, 18.dp, 16.dp, 110.dp),
+                  modifier = Modifier.fillMaxSize()
+              ) {
+                  item { SectionHeader("Контакты в сети") }
+                  val people = dialogs.filter { !it.isChannel }
+                  items(people.size) { idx ->
+                      val p = people[idx]
+                      SegmentedSettingCard(
+                          index = idx,
+                          total = people.size,
+                          icon = Icons.Default.Person,
+                          title = p.title,
+                          subtitle = "@${p.username} • в сети",
+                          badgeText = "Написать",
+                          onClick = { onOpenChat(p.id) }
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          fun ProfileTabScreen(
+              account: AccountProfile,
+              onUpdate: (AccountProfile) -> Unit,
+              onToast: (String) -> Unit
+          ) {
+              var name by remember(account) { mutableStateOf(account.name) }
+              var bio by remember(account) { mutableStateOf(account.bio) }
+
+              Column(
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  modifier = Modifier.fillMaxSize().padding(20.dp)
+              ) {
+                  Spacer(Modifier.height(20.dp))
+                  ExpressiveMorphIcon(shapeType = ShapeType.SUNNY, containerColor = ContainerTeal, modifier = Modifier.size(110.dp)) {
+                      Text(account.name.take(1), fontSize = 40.sp, color = TextWhite, fontWeight = FontWeight.Bold)
+                  }
+                  Spacer(Modifier.height(12.dp))
+                  Text("@${account.username}", color = AccentTeal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                  Spacer(Modifier.height(20.dp))
+                  OutlinedTextField(
+                      value = name,
+                      onValueChange = { name = it },
+                      label = { Text("Имя профиля") },
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth()
+                  )
+                  Spacer(Modifier.height(12.dp))
+                  OutlinedTextField(
+                      value = bio,
+                      onValueChange = { bio = it },
+                      label = { Text("О себе") },
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth()
+                  )
+                  Spacer(Modifier.height(18.dp))
+                  Button(
+                      onClick = { onUpdate(account.copy(name = name, bio = bio)) },
+                      colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, contentColor = BgDark),
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth().height(52.dp)
+                  ) {
+                      Text("Сохранить изменения", fontWeight = FontWeight.Bold)
+                  }
+              }
+          }
+
+          @Composable
+          fun CreateGroupOrChannelScreen(
+              onBack: () -> Unit,
+              onCreate: (ChatDialog) -> Unit
+          ) {
+              var title by remember { mutableStateOf("") }
+              var username by remember { mutableStateOf("") }
+              var isChannel by remember { mutableStateOf(true) }
+
+              BackHandler(onBack = onBack)
+
+              Column(modifier = Modifier.fillMaxSize().background(BgDark).padding(20.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                      Surface(color = CardDark, shape = CircleShape, modifier = Modifier.size(44.dp).clickable(onClick = onBack)) {
+                          Box(contentAlignment = Alignment.Center) {
+                              Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
+                          }
+                      }
+                      Spacer(Modifier.width(12.dp))
+                      Text("Создать канал или группу", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                  }
+                  Spacer(Modifier.height(24.dp))
+                  OutlinedTextField(
+                      value = title,
+                      onValueChange = { title = it },
+                      label = { Text("Название") },
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth()
+                  )
+                  Spacer(Modifier.height(12.dp))
+                  OutlinedTextField(
+                      value = username,
+                      onValueChange = { username = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' } },
+                      label = { Text("Публичный @юзернейм") },
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth()
+                  )
+                  Spacer(Modifier.height(16.dp))
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                      Checkbox(checked = isChannel, onCheckedChange = { isChannel = it })
+                      Text("Это публичный канал (пишут только админы)", color = TextWhite)
+                  }
+                  Spacer(Modifier.height(20.dp))
+                  Button(
+                      onClick = {
+                          if (title.isNotBlank()) {
+                              onCreate(
+                                  ChatDialog(
+                                      id = "custom_${System.currentTimeMillis()}",
+                                      title = title.trim(),
+                                      username = if (username.isBlank()) "new_channel" else username,
+                                      folder = if (isChannel) "Каналы" else "Группы",
+                                      isChannel = isChannel,
+                                      shape = ShapeType.SUNNY,
+                                      messages = mutableStateListOf(
+                                          ChatMessage(1, title, "Канал создан!", "Сейчас", false)
+                                      )
+                                  )
+                              )
+                          }
+                      },
+                      colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, contentColor = BgDark),
+                      shape = RoundedCornerShape(50),
+                      modifier = Modifier.fillMaxWidth().height(54.dp)
+                  ) {
+                      Text("Создать", fontWeight = FontWeight.Bold)
+                  }
+              }
+          }
+          EOF
+
+      - name: Package Full Source Project into ZIP
+        run: |
+          zip -r Messenger-Full-Project.zip settings.gradle.kts build.gradle.kts gradle.properties app .github
+
+      - name: Upload Full Project ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Messenger-Full-Project-ZIP
+          path: Messenger-Full-Project.zip
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload Compiled Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Messenger-Debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
